@@ -32,6 +32,32 @@ function allow(ip) {
   return true;
 }
 
+// ---- 租客端與後台共用的即時狀態（記憶體內；服務重啟會回到初始，Demo 用）----
+const store = { alerts: [], imgs: new Map(), stats: { returns: 12, auto: 10, latency: "—" }, seeded: false, version: 1, seq: 100 };
+const MAX_ALERTS = 200, MAX_IMG = 2 * 1024 * 1024;
+function bump() { store.version++; }
+function saveImg(key, dataUrl) {
+  const m = /^data:(image\/[\w.+-]+);base64,(.+)$/.exec(dataUrl || "");
+  if (!m || m[2].length > MAX_IMG * 1.4) return null;
+  store.imgs.set(key, { mime: m[1], buf: Buffer.from(m[2], "base64") });
+  return "/api/img/" + key;
+}
+function addAlert(a, before, after, minutesAgo) {
+  if (store.alerts.length >= MAX_ALERTS) { const old = store.alerts.pop(); store.imgs.delete(old.id + "-b"); store.imgs.delete(old.id + "-a"); }
+  const id = ++store.seq;
+  const al = {
+    id, ts: new Date(Date.now() - (minutesAgo || 0) * 60000).toISOString(), status: Number(a.status) || 0,
+    plate: String(a.plate || ""), car: String(a.car || ""), renter: String(a.renter || ""), severity: a.severity === "high" ? "high" : "mid",
+    type: String(a.type || "damage"), title: String(a.title || "").slice(0, 80), detail: String(a.detail || "").slice(0, 200), viewName: String(a.viewName || ""),
+    conf: Number(a.conf) || 0, sev: String(a.sev || ""), sec: String(a.sec || ""), box: Array.isArray(a.box) ? a.box.slice(0, 4).map(Number) : null,
+    beforeUrl: before ? saveImg(id + "-b", before) : null, afterUrl: after ? saveImg(id + "-a", after) : null,
+  };
+  store.alerts.unshift(al); bump();
+  return al;
+}
+function resetStore() { store.alerts = []; store.imgs.clear(); store.stats = { returns: 12, auto: 10, latency: "—" }; store.seeded = false; bump(); }
+function sendJSON(res, code, obj) { res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" }); res.end(JSON.stringify(obj)); }
+
 const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".json": "application/json" };
 
 const PROMPTS = {
@@ -87,6 +113,47 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ ai: !!KEY, model: MODEL }));
     }
+    if (url.pathname === "/api/state" && req.method === "GET") return sendJSON(res, 200, { version: store.version, seeded: store.seeded, stats: store.stats, alerts: store.alerts });
+    if (url.pathname.startsWith("/api/img/") && req.method === "GET") {
+      const im = store.imgs.get(url.pathname.slice(9));
+      if (!im) { res.writeHead(404); return res.end(); }
+      res.writeHead(200, { "Content-Type": im.mime, "Cache-Control": "public, max-age=3600" }); return res.end(im.buf);
+    }
+    if (url.pathname === "/api/alerts" && req.method === "POST") {
+      const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
+      if (!allow(ip)) return sendJSON(res, 429, { error: "請求過多，請稍後再試" });
+      const b = JSON.parse(await readBody(req));
+      return sendJSON(res, 200, addAlert(b.alert || {}, b.before, b.after));
+    }
+    if (url.pathname === "/api/seed" && req.method === "POST") {
+      if (!store.seeded) {
+        const b = JSON.parse(await readBody(req));
+        store.seeded = true;
+        (b.alerts || []).slice(0, 5).forEach((a) => addAlert(a, a.before, a.after, Number(a.minutesAgo) || 0));
+        bump();
+      }
+      return sendJSON(res, 200, { ok: true });
+    }
+    if (url.pathname === "/api/stats" && req.method === "POST") {
+      const b = JSON.parse(await readBody(req));
+      store.stats.returns += Math.max(0, Math.min(5, Number(b.returns) || 0));
+      store.stats.auto += Math.max(0, Math.min(5, Number(b.auto) || 0));
+      if (typeof b.latency === "string") store.stats.latency = b.latency.slice(0, 12);
+      bump(); return sendJSON(res, 200, store.stats);
+    }
+    if (url.pathname === "/api/reset" && req.method === "POST") { resetStore(); return sendJSON(res, 200, { ok: true }); }
+    const am = /^\/api\/alerts\/(\d+)$/.exec(url.pathname);
+    if (am && req.method === "PATCH") {
+      const al = store.alerts.find((x) => x.id === Number(am[1]));
+      if (!al) return sendJSON(res, 404, { error: "not found" });
+      const b = JSON.parse(await readBody(req)); const st = Number(b.status);
+      if (st >= 0 && st <= 3) { al.status = st; bump(); }
+      return sendJSON(res, 200, al);
+    }
+    if (am && req.method === "DELETE") {
+      store.alerts = store.alerts.filter((x) => x.id !== Number(am[1])); store.imgs.delete(am[1] + "-b"); store.imgs.delete(am[1] + "-a"); bump();
+      return sendJSON(res, 200, { ok: true });
+    }
     if (url.pathname === "/api/analyze" && req.method === "POST") {
       const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
       if (!allow(ip)) { res.writeHead(429, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "請求過多，請稍後再試" })); }
@@ -97,7 +164,8 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       return res.end(JSON.stringify(out));
     }
-    let p = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
+    const PAGES = { "/": "/index.html", "/admin": "/admin.html", "/demo": "/demo.html" };
+    let p = PAGES[url.pathname] || decodeURIComponent(url.pathname);
     const file = path.join(ROOT, "public", path.normalize(p).replace(/^(\.\.[/\\])+/, ""));
     if (!file.startsWith(path.join(ROOT, "public"))) { res.writeHead(403); return res.end(); }
     fs.readFile(file, (err, buf) => {

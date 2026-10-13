@@ -113,7 +113,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ ai: !!KEY, model: MODEL }));
     }
-    if (url.pathname === "/api/state" && req.method === "GET") return sendJSON(res, 200, { version: store.version, seeded: store.seeded, stats: store.stats, alerts: store.alerts });
+    if (url.pathname === "/api/state" && req.method === "GET") return sendJSON(res, 200, { version: store.version, seeded: store.seeded, stats: store.stats, alerts: [...store.alerts].sort((x, y) => (x.ts < y.ts ? 1 : x.ts > y.ts ? -1 : 0)) });
     if (url.pathname.startsWith("/api/img/") && req.method === "GET") {
       const im = store.imgs.get(url.pathname.slice(9));
       if (!im) { res.writeHead(404); return res.end(); }

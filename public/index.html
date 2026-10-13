@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>iRent 智能車況管家</title>
+<style>
+:root{--red:#D62839;--ink:#1B1F2A;--gray:#5B6270;--line:#E1E4EA;--bg:#F4F5F7;--green:#2E9E6B;--amber:#E8962E;--white:#fff}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--ink);color:#fff;padding:12px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+header h1{font-size:18px;margin:0;display:flex;align-items:center;gap:10px}
+header h1 b{background:var(--red);border-radius:6px;padding:2px 8px;font-style:italic}
+header .sp{flex:1}
+header label{font-size:13px;color:#C9CED8;display:flex;align-items:center;gap:6px}
+select,button{font-family:inherit}
+select{padding:6px 8px;border-radius:8px;border:1px solid #4A5163;background:#2B3140;color:#fff;font-size:13px}
+.hbtn{background:#2B3140;color:#fff;border:1px solid #4A5163;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer}
+.sw{display:flex;align-items:center;gap:6px;font-size:13px;color:#C9CED8}
+main{display:grid;grid-template-columns:430px 1fr;gap:24px;padding:24px;max-width:1400px;margin:0 auto;align-items:start}
+@media(max-width:980px){main{grid-template-columns:1fr;padding:12px}}
+.phone{width:390px;max-width:100%;height:780px;margin:0 auto;background:var(--ink);border-radius:44px;padding:12px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+#screen{background:#fff;border-radius:34px;height:100%;overflow-y:auto;position:relative}
+.ph-top{background:var(--red);color:#fff;padding:22px 18px 14px;border-radius:34px 34px 0 0}
+.ph-top h2{margin:0;font-size:18px}
+.ph-top p{margin:4px 0 0;font-size:12px;opacity:.9}
+.pad{padding:16px}
+.vcard{background:var(--bg);border-radius:14px;padding:14px;margin-bottom:12px}
+.vcard .plate{display:inline-block;background:#fff;border:2px solid var(--ink);border-radius:6px;padding:1px 8px;font-weight:700;letter-spacing:1px}
+.big{display:block;width:100%;border:0;border-radius:14px;padding:16px;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:10px;text-align:left}
+.big small{display:block;font-weight:400;font-size:12px;opacity:.85;margin-top:3px}
+.b-red{background:var(--red);color:#fff}.b-ink{background:var(--ink);color:#fff}.b-gray{background:#e9ebf0;color:var(--ink)}
+.btn{border:0;border-radius:12px;padding:12px 16px;font-size:15px;font-weight:700;cursor:pointer}
+.btn.red{background:var(--red);color:#fff}.btn.ink{background:var(--ink);color:#fff}.btn.line{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+.btn.sm{padding:6px 10px;font-size:12px;border-radius:8px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.prog{display:flex;gap:4px;margin:10px 0}
+.prog i{flex:1;height:5px;border-radius:3px;background:var(--line)}
+.prog i.on{background:var(--red)}.prog i.done{background:var(--green)}
+.cam{position:relative;width:100%;aspect-ratio:4/3;background:#3A4150;border-radius:14px;overflow:hidden}
+.cam img{width:100%;height:100%;object-fit:cover;display:block}
+.cam svg{position:absolute;inset:0;width:100%;height:100%}
+.cam .hint{position:absolute;left:0;right:0;top:8px;text-align:center;color:#fff;font-size:12px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.banner{border-radius:12px;padding:10px 12px;font-size:14px;margin:10px 0;font-weight:700}
+.banner.bad{background:#FDECEE;color:#A81626}.banner.ok{background:#E5F5EE;color:#1E7A50}.banner.warn{background:#FFF3E0;color:#9A5A0B}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chip{font-size:12px;border-radius:999px;padding:3px 10px;font-weight:700}
+.chip.ok{background:#E5F5EE;color:#1E7A50}.chip.bad{background:#FDECEE;color:#A81626}.chip.wait{background:#EEF0F4;color:var(--gray)}
+.tag{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;color:#fff}
+.tag.high{background:var(--red)}.tag.mid{background:var(--amber)}.tag.low{background:var(--green)}.tag.gray{background:#8a92a1}
+.thumbs{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:8px}
+.thumbs div{aspect-ratio:1;background:var(--bg);border-radius:6px;overflow:hidden;position:relative;font-size:9px}
+.thumbs img{width:100%;height:100%;object-fit:cover}
+.thumbs div.cur{outline:2px solid var(--red)}
+.step{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:14px;border-bottom:1px solid var(--line)}
+.spin{width:16px;height:16px;border:2.5px solid var(--line);border-top-color:var(--red);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.imgbox{position:relative;display:inline-block;width:100%}
+.imgbox img{width:100%;display:block;border-radius:10px}
+.imgbox .bx{position:absolute;border:3px solid var(--red);border-radius:6px;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.res{border:1.5px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px}
+.res h4{margin:0 0 6px;font-size:14px}
+.res p{margin:4px 0;font-size:13px;color:var(--gray)}
+/* dashboard */
+.dash{background:#fff;border-radius:18px;box-shadow:0 2px 14px rgba(0,0,0,.08);overflow:hidden}
+.dash-h{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.dash-h h2{margin:0;font-size:18px}
+.dash-h .live{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(46,158,107,.2)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px}
+@media(max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--bg);border-radius:12px;padding:12px}
+.kpi b{display:block;font-size:26px}.kpi span{font-size:12px;color:var(--gray)}
+.dgrid{display:grid;grid-template-columns:340px 1fr;gap:0;border-top:1px solid var(--line);min-height:520px}
+@media(max-width:1250px){.dgrid{grid-template-columns:1fr}}
+.alist{border-right:1px solid var(--line);max-height:620px;overflow-y:auto}
+.ai{padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.ai:hover{background:#fafbfc}.ai.sel{background:#FFF1F2}
+.ai.flash{animation:fl 1.6s}
+@keyframes fl{0%{background:#FFD9DD}100%{background:transparent}}
+.ai .t{font-weight:700;font-size:14px;margin:4px 0 2px}.ai .s{font-size:12px;color:var(--gray)}
+.detail{padding:18px 20px}
+.detail h3{margin:0 0 6px;font-size:18px}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.cmp figure{margin:0}.cmp figcaption{font-size:12px;color:var(--gray);margin-bottom:4px;font-weight:700}
+.empty{color:var(--gray);padding:60px 20px;text-align:center}
+.flow{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+.flow span{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--bg);color:var(--gray);font-weight:700}
+.flow span.on{background:var(--ink);color:#fff}
+#toast{position:fixed;right:20px;top:20px;z-index:9;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--ink);color:#fff;border-left:5px solid var(--red);border-radius:10px;padding:12px 16px;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.3);animation:ti .3s}
+@keyframes ti{from{transform:translateX(40px);opacity:0}}
+.note{font-size:12px;color:var(--gray);padding:0 20px 16px}
+body.only-phone header,body.only-phone .dash,body.only-phone #toast{display:none}
+body.only-dash header,body.only-dash section:first-child,body.only-dash #toast,body.only-dash .note{display:none}
+body.only-phone main,body.only-dash main{display:block;padding:0;max-width:none}
+body.only-phone{background:#fff}body.only-phone .phone{margin:0;box-shadow:none}
+body.only-dash main{padding:0}body.only-dash .dgrid{grid-template-columns:340px 1fr}body.only-dash .dash{border-radius:0;box-shadow:none}
+</style>
+</head>
+<body>
+<header>
+  <h1><b>iRent</b> 智能車況管家 <span style="font-weight:400;font-size:13px;opacity:.7">Prototype</span></h1>
+  <div class="sp"></div>
+  <label>Demo 情境
+    <select id="scn" onchange="S.scenario=this.value">
+      <option value="ok">一般情境：無異常</option>
+      <option value="dent">還車：右側新增凹陷</option>
+      <option value="dirty">還車：後座髒汙</option>
+      <option value="inherit">取車：承接髒車</option>
+    </select>
+  </label>
+  <label class="sw"><input type="checkbox" id="aiSw" onchange="toggleAI(this.checked)"> <span id="aiLbl">AI 模式 (Gemini)</span></label>
+  <button class="hbtn" onclick="resetAll()">重置</button>
+</header>
+
+<main>
+  <section><div class="phone"><div id="screen"></div></div></section>
+  <section class="dash">
+    <div class="dash-h"><span class="live"></span><h2>客服／營運後台</h2><span style="color:var(--gray);font-size:13px">即時車況預警</span></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="dgrid"><div class="alist" id="alist"></div><div class="detail" id="detail"></div></div>
+    <div class="note">模擬模式：取還車照片品質為真實運算（亮度、清晰度），車損與髒汙辨識依「Demo 情境」產生模擬結果。AI 模式：照片送 Gemini 多模態模型判讀。</div>
+  </section>
+</main>
+<div id="toast"></div>
+<input type="file" id="file" accept="image/*" capture="environment" hidden onchange="onFile(event)">
+
+<script>
+// ============ 資料 ============
+const VIEWS = [
+  { id: 'front', name: '車頭', hint: '對準車頭，車牌需入鏡', plate: true },
+  { id: 'rear', name: '車尾', hint: '對準車尾，車牌需入鏡', plate: true },
+  { id: 'left', name: '車身左側', hint: '站在左側，拍到整個車身' },
+  { id: 'right', name: '車身右側', hint: '站在右側，拍到整個車身' },
+  { id: 'seat-front', name: '車內前座', hint: '拍到前排座椅與地墊', interior: true },
+  { id: 'seat-rear', name: '車內後座', hint: '拍到後排座椅與地墊', interior: true },
+];
+const PLATE = 'ABC-1234';
+const CAR = 'TOYOTA Yaris Cross';
+const SEV = { '輕': 'low', '中': 'mid', '重': 'high' };
+const TYPE_ZH = { scratch: '刮傷', dent: '凹陷', crack: '裂痕', broken: '破損', other: '其他損傷' };
+
+const S = { phase: 'home', mode: null, idx: 0, photos: {}, cur: null, scenario: 'ok', ai: false, aiAvailable: false,
+  pickup: null, result: null, progress: [], alerts: [], sel: null, stats: { returns: 12, auto: 10, latency: '—' }, t0: 0 };
+let alertSeq = 100;
+
+// ============ 範例照片（程式產生，供 Demo 使用）============
+function rr(g, x, y, w, h, r) { g.beginPath(); g.roundRect(x, y, w, h, r); }
+function wheel(g, x, y, r) { g.fillStyle = '#222a36'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.fillStyle = '#aab3c0'; g.beginPath(); g.arc(x, y, r * .52, 0, 7); g.fill(); g.fillStyle = '#6b7482'; g.beginPath(); g.arc(x, y, r * .16, 0, 7); g.fill(); }
+function bgExt(g) {
+  const gr = g.createLinearGradient(0, 0, 0, 380); gr.addColorStop(0, '#cfd6e0'); gr.addColorStop(1, '#aeb7c4');
+  g.fillStyle = gr; g.fillRect(0, 0, 640, 480);
+  g.fillStyle = '#5b616d'; g.fillRect(0, 385, 640, 95);
+  g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 5; g.beginPath(); g.moveTo(40, 470); g.lineTo(60, 395); g.moveTo(600, 470); g.lineTo(580, 395); g.stroke();
+}
+function drawSide(g, scratch, dent) {
+  bgExt(g);
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(320, 410, 270, 16, 0, 0, 7); g.fill();
+  g.fillStyle = '#e9edf2'; g.strokeStyle = '#8a94a3'; g.lineWidth = 3;
+  rr(g, 70, 250, 500, 105, 28); g.fill(); g.stroke();
+  g.beginPath(); g.moveTo(180, 252); g.lineTo(240, 182); g.lineTo(420, 182); g.lineTo(490, 252); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = '#8fb3cf';
+  g.beginPath(); g.moveTo(198, 248); g.lineTo(246, 194); g.lineTo(318, 194); g.lineTo(318, 248); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(332, 248); g.lineTo(332, 194); g.lineTo(412, 194); g.lineTo(470, 248); g.closePath(); g.fill();
+  g.strokeStyle = '#8a94a3'; g.lineWidth = 2; g.beginPath(); g.moveTo(325, 252); g.lineTo(325, 350); g.moveTo(190, 252); g.lineTo(190, 350); g.moveTo(455, 252); g.lineTo(455, 350); g.stroke();
+  g.fillStyle = '#9aa3b0'; rr(g, 280, 268, 34, 8, 4); g.fill(); rr(g, 400, 268, 34, 8, 4); g.fill();
+  wheel(g, 170, 358, 50); wheel(g, 470, 358, 50);
+  if (scratch) {
+    g.strokeStyle = '#59616e'; g.lineWidth = 2.5;
+    [[360, 296, 462, 284], [364, 303, 455, 293], [370, 310, 440, 301]].forEach(([a, b, c, d]) => { g.beginPath(); g.moveTo(a, b); g.lineTo((a + c) / 2, (b + d) / 2 + 4); g.lineTo(c, d); g.stroke(); });
+    g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 1; g.beginPath(); g.moveTo(360, 299); g.lineTo(462, 287); g.stroke();
+  }
+  if (dent) {
+    const rg = g.createRadialGradient(300, 306, 4, 300, 306, 48); rg.addColorStop(0, 'rgba(40,50,70,.7)'); rg.addColorStop(.6, 'rgba(70,80,100,.35)'); rg.addColorStop(1, 'rgba(70,80,100,0)');
+    g.fillStyle = rg; g.beginPath(); g.arc(300, 306, 48, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 3; g.beginPath(); g.arc(292, 300, 26, 3.4, 5); g.stroke();
+  }
+}
+function drawFrontRear(g, rear) {
+  bgExt(g);
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(320, 412, 190, 14, 0, 0, 7); g.fill();
+  g.fillStyle = '#e9edf2'; g.strokeStyle = '#8a94a3'; g.lineWidth = 3;
+  rr(g, 170, 215, 300, 135, 30); g.fill(); g.stroke();
+  g.fillStyle = '#8fb3cf'; g.beginPath(); g.moveTo(205, 215); g.lineTo(240, 130); g.lineTo(400, 130); g.lineTo(435, 215); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = rear ? '#e03c4b' : '#fff6c9'; g.beginPath(); g.ellipse(212, 262, 28, 14, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(428, 262, 28, 14, 0, 0, 7); g.fill();
+  if (!rear) { g.fillStyle = '#2b323f'; rr(g, 270, 252, 100, 30, 8); g.fill(); }
+  g.fillStyle = '#fff'; g.strokeStyle = '#1b1f2a'; g.lineWidth = 2; rr(g, 270, 298, 100, 32, 4); g.fill(); g.stroke();
+  g.fillStyle = '#1b1f2a'; g.font = 'bold 20px Arial'; g.textAlign = 'center'; g.fillText(PLATE, 320, 322);
+  g.fillStyle = '#222a36'; rr(g, 150, 322, 32, 62, 6); g.fill(); rr(g, 458, 322, 32, 62, 6); g.fill();
+}
+function bgInt(g, c1, c2) { const gr = g.createLinearGradient(0, 0, 0, 480); gr.addColorStop(0, c1); gr.addColorStop(1, c2); g.fillStyle = gr; g.fillRect(0, 0, 640, 480); }
+function drawSeatFront(g) {
+  bgInt(g, '#d8dde5', '#9aa3b0');
+  g.fillStyle = '#bfdcf0'; rr(g, 60, 30, 520, 170, 16); g.fill();
+  g.fillStyle = '#2b323f'; g.fillRect(0, 195, 640, 95);
+  g.strokeStyle = '#1b1f2a'; g.lineWidth = 14; g.beginPath(); g.arc(190, 335, 68, 0, 7); g.stroke(); g.fillStyle = '#1b1f2a'; g.beginPath(); g.arc(190, 335, 18, 0, 7); g.fill();
+  g.fillStyle = '#4a5163'; rr(g, 300, 300, 80, 150, 10); g.fill();
+  g.fillStyle = '#3a4150'; rr(g, 430, 290, 180, 190, 24); g.fill();
+  g.fillStyle = '#7a8190'; g.fillRect(0, 450, 640, 30);
+}
+function drawSeatRear(g, dirty) {
+  bgInt(g, '#cfd5de', '#8f98a6');
+  g.fillStyle = '#bfdcf0'; rr(g, 120, 28, 400, 120, 14); g.fill();
+  g.fillStyle = '#444c5e'; rr(g, 60, 160, 520, 200, 24); g.fill();
+  g.fillStyle = '#555e72'; [[110, 120], [260, 120], [410, 120]].forEach(([x]) => { rr(g, x, 120, 120, 50, 12); g.fill(); });
+  g.fillStyle = '#3a4150'; rr(g, 40, 345, 560, 105, 18); g.fill();
+  g.strokeStyle = '#1b1f2a'; g.lineWidth = 6; g.beginPath(); g.moveTo(180, 180); g.lineTo(240, 345); g.moveTo(460, 180); g.lineTo(400, 345); g.stroke();
+  if (dirty) {
+    g.fillStyle = 'rgba(107,74,47,.88)'; g.beginPath(); g.ellipse(230, 398, 62, 26, .2, 0, 7); g.fill(); g.beginPath(); g.ellipse(430, 270, 46, 30, -.3, 0, 7); g.fill();
+    g.fillStyle = 'rgba(140,100,60,.8)'; g.beginPath(); g.ellipse(330, 420, 28, 12, 0, 0, 7); g.fill();
+    g.save(); g.translate(500, 405); g.rotate(.5); g.fillStyle = '#fff'; rr(g, 0, 0, 34, 52, 4); g.fill(); g.fillStyle = '#d62839'; g.fillRect(0, 14, 34, 12); g.restore();
+    g.fillStyle = '#f2d04b'; g.beginPath(); g.moveTo(120, 380); g.lineTo(165, 372); g.lineTo(150, 405); g.lineTo(118, 400); g.closePath(); g.fill();
+    g.fillStyle = '#c9a86a'; for (let i = 0; i < 40; i++) { g.fillRect(150 + (i * 53) % 330, 360 + (i * 37) % 80, 4, 4); }
+  }
+}
+function noise(g) { for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(${Math.random() < .5 ? 0 : 255},${Math.random() < .5 ? 0 : 255},255,${(Math.random() * .1).toFixed(3)})`; g.fillRect(Math.random() * 640, Math.random() * 480, 2, 2); } }
+function wrongOf(v) { return v === 'front' ? 'left' : 'front'; }
+function drawSample(viewId, phase, scenario, variant) {
+  const c = document.createElement('canvas'); c.width = 640; c.height = 480; const g = c.getContext('2d');
+  const v = variant === 'wrong' ? wrongOf(viewId) : viewId;
+  const newDent = viewId === 'right' && phase === 'return' && scenario === 'dent';
+  const dirty = viewId === 'seat-rear' && ((phase === 'return' && scenario === 'dirty') || (phase === 'pickup' && scenario === 'inherit'));
+  if (v === 'front') drawFrontRear(g, false);
+  else if (v === 'rear') drawFrontRear(g, true);
+  else if (v === 'left') drawSide(g, viewId === 'left' && variant !== 'wrong', false);
+  else if (v === 'right') drawSide(g, false, newDent);
+  else if (v === 'seat-front') drawSeatFront(g);
+  else drawSeatRear(g, dirty);
+  noise(g);
+  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = '13px sans-serif'; g.textAlign = 'left'; g.fillText('示範照片 SAMPLE', 12, 22);
+  let out = c;
+  if (variant === 'dark') { g.fillStyle = 'rgba(5,8,15,.84)'; g.fillRect(0, 0, 640, 480); }
+  if (variant === 'blur') { out = document.createElement('canvas'); out.width = 640; out.height = 480; const g2 = out.getContext('2d'); g2.filter = 'blur(9px)'; g2.drawImage(c, 0, 0); }
+  return out.toDataURL('image/jpeg', .85);
+}
+
+// ============ 照片品質檢查（真實運算）============
+function loadImg(url) { return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; }); }
+async function metrics(url) {
+  const im = await loadImg(url); const w = 320, h = Math.round(im.height * 320 / im.width);
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.drawImage(im, 0, 0, w, h);
+  const d = g.getImageData(0, 0, w, h).data; const gray = new Float32Array(w * h); let sum = 0;
+  for (let i = 0; i < w * h; i++) { gray[i] = .299 * d[i * 4] + .587 * d[i * 4 + 1] + .114 * d[i * 4 + 2]; sum += gray[i]; }
+  const mean = sum / (w * h); let lm = 0, ls = 0, n = 0;
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x; const l = 4 * gray[i] - gray[i - 1] - gray[i + 1] - gray[i - w] - gray[i + w]; lm += l; ls += l * l; n++; }
+  lm /= n; const lap = ls / n - lm * lm;
+  return { mean, lap };
+}
+async function shrink(url, max = 1024) {
+  const im = await loadImg(url); const k = Math.min(1, max / Math.max(im.width, im.height));
+  const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', .85);
+}
+async function api(task, context, images) {
+  const imgs = await Promise.all(images.map((u) => shrink(u)));
+  const r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task, context, images: imgs }) });
+  const j = await r.json(); if (!r.ok) throw new Error(j.error || 'AI error'); return j;
+}
+async function checkQuality(p, v) {
+  const m = await metrics(p.url);
+  const checks = [
+    { k: '光線', ok: m.mean >= 60 && m.mean <= 225, msg: m.mean < 60 ? '光線太暗，請移到明亮處或開啟車燈後重拍' : '畫面過曝或逆光，請調整角度後重拍' },
+    { k: '清晰度', ok: m.mean < 60 || m.lap >= 25, msg: '照片模糊，請穩住手機、點擊對焦後重拍' },
+    { k: '角度', ok: !(p.meta && p.meta.wrong), msg: `拍攝角度不對，請對準「${v.name}」重拍` },
+  ];
+  if (v.plate) checks.push({ k: '車牌', ok: !(p.meta && p.meta.wrong), msg: '沒有拍到車牌，請讓車牌清楚入鏡' });
+  let aiNote = null;
+  if (S.ai && !(p.meta && p.meta.sample) && checks.every((c) => c.ok)) {
+    try {
+      const a = await api('quality', { viewName: v.name }, [p.url]); aiNote = 'AI 已檢查';
+      if (!a.view_match) { checks.find((c) => c.k === '角度').ok = false; checks.find((c) => c.k === '角度').msg = a.tip || `拍攝角度不對，請對準「${v.name}」重拍`; }
+      if (v.plate && !a.plate_visible) { const c = checks.find((c) => c.k === '車牌'); c.ok = false; c.msg = a.tip || '沒有拍到車牌，請讓車牌清楚入鏡'; }
+      if (a.distance && a.distance !== 'ok') checks.push({ k: '距離', ok: false, msg: a.distance === 'too_far' ? '離車太遠，請靠近一點' : '離車太近，請退後一點' });
+      if (a.lens_or_body_dirty) checks.push({ k: '髒污', ok: false, msg: '鏡頭或車身髒污影響判讀，請擦拭後重拍' });
+    } catch (e) { aiNote = 'AI 暫時無法使用，僅做本機檢查'; }
+  }
+  return { checks, ok: checks.every((c) => c.ok), m, aiNote };
+}
+
+// ============ 分析（模擬 / Gemini）============
+const BOX_SCRATCH = [555, 540, 655, 740], BOX_DENT = [540, 395, 730, 545], BOX_DIRTY = [490, 265, 960, 845];
+function mockExisting(view) { return view.id === 'left' ? { existing_damage: [{ location: '車身左側・後門', type: 'scratch', severity: '輕', confidence: .88, description: '後門有一道約 10 cm 細刮痕', box: BOX_SCRATCH }] } : { existing_damage: [] }; }
+function mockCompare(view) { return (view.id === 'right' && S.scenario === 'dent') ? { new_damage: [{ location: '車身右側・前門', type: 'dent', severity: '中', confidence: .92, description: '前門新增約 8 cm 凹陷，漆面輕微受損', box: BOX_DENT }] } : { new_damage: [] }; }
+function mockInterior(view, phase) {
+  const dirty = view.id === 'seat-rear' && ((phase === 'return' && S.scenario === 'dirty') || (phase === 'pickup' && S.scenario === 'inherit'));
+  if (dirty) return { level: 'dirty', reason: '後座有明顯飲料污漬與垃圾，須立即清潔', confidence: .94, box: BOX_DIRTY };
+  if (view.id === 'seat-rear') return { level: 'normal', reason: '少量灰塵，不影響使用', confidence: .86, box: null };
+  return { level: 'clean', reason: '座椅與地墊整潔', confidence: .9, box: null };
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function analyzeView(view, phase, photo, baseline) {
+  if (!S.ai) { await sleep(450); return view.interior ? mockInterior(view, phase) : (phase === 'pickup' ? mockExisting(view) : mockCompare(view)); }
+  if (view.interior) return api('interior', { viewName: view.name }, [photo]);
+  return phase === 'pickup' ? api('existing', { viewName: view.name }, [photo]) : api('compare', { viewName: view.name }, [baseline, photo]);
+}
+
+async function analyze() {
+  S.phase = 'analyzing'; S.t0 = Date.now();
+  S.progress = VIEWS.map((v) => ({ v, st: 'wait' })); render();
+  const out = [];
+  await Promise.all(VIEWS.map(async (v, i) => {
+    S.progress[i].st = 'run'; render();
+    let r;
+    try {
+      const baseline = S.mode === 'return' ? ((S.pickup && S.pickup.photos[v.id]) || drawSample(v.id, 'pickup', S.scenario, 'ok')) : null;
+      r = await analyzeView(v, S.mode, S.photos[v.id].url, baseline);
+      out[i] = { v, r, baseline };
+    } catch (e) { out[i] = { v, r: v.interior ? { level: 'clean', reason: 'AI 暫時無法使用', confidence: 0 } : { new_damage: [], existing_damage: [] }, baseline: null, err: String(e.message || e) }; }
+    S.progress[i].st = 'done'; render();
+  }));
+  finish(out);
+}
+
+function finish(out) {
+  const sec = ((Date.now() - S.t0) / 1000).toFixed(1);
+  const res = { sec, items: out, damages: [], dirty: [], levels: [], aiErr: out.some((o) => o.err) };
+  out.forEach((o) => {
+    if (o.v.interior) { res.levels.push({ v: o.v, ...o.r }); if (o.r.level === 'dirty') res.dirty.push({ v: o.v, ...o.r }); }
+    else (S.mode === 'pickup' ? (o.r.existing_damage || []) : (o.r.new_damage || [])).forEach((d) => res.damages.push({ v: o.v, ...d, baseline: o.baseline }));
+  });
+  S.result = res;
+  if (S.mode === 'return') {
+    S.stats.returns++;
+    if (!res.damages.length && !res.dirty.length) S.stats.auto++;
+    res.damages.forEach((d) => pushAlert({ type: 'damage', severity: d.severity === '重' || d.confidence > .9 ? 'high' : 'mid', title: `新車損：${d.location}${TYPE_ZH[d.type] || ''}`, detail: d.description, v: d.v, before: d.baseline, after: S.photos[d.v.id].url, box: d.box, conf: d.confidence, sev: d.severity, sec }));
+    res.dirty.forEach((d) => pushAlert({ type: 'dirty', severity: 'high', title: `車內髒汙：${d.v.name}`, detail: d.reason, v: d.v, before: null, after: S.photos[d.v.id].url, box: d.box, conf: d.confidence, sev: '須立即清潔', sec }));
+    S.stats.latency = (res.damages.length || res.dirty.length) ? sec + ' 秒' : S.stats.latency;
+  } else {
+    res.dirty.forEach((d) => pushAlert({ type: 'inherit', severity: 'high', title: `取車即發現髒汙：${d.v.name}`, detail: d.reason + '（租客取車前回報，非本次租借造成）', v: d.v, before: null, after: S.photos[d.v.id].url, box: d.box, conf: d.confidence, sev: '承接前車', sec }));
+  }
+  S.phase = 'result'; render(); renderDash();
+}
+
+// ============ 後台 ============
+const FLOW = ['待確認', '已確認', '已派工', '已結案'];
+function pushAlert(a) {
+  const al = Object.assign({ id: ++alertSeq, ts: new Date(), plate: PLATE, car: CAR, renter: '租客 王＊明', status: 0, flash: true }, a);
+  S.alerts.unshift(al); S.sel = al.id;
+  toast(`🔔 新預警：${al.title}`);
+}
+function seedAlerts() {
+  const past = (m) => new Date(Date.now() - m * 60000);
+  S.alerts = [
+    { id: 2, ts: past(95), plate: 'GHI-9012', car: CAR, renter: '租客 林＊婷', status: 0, severity: 'mid', type: 'damage', title: '疑似新增凹陷：右側車門', detail: '信心度偏低，進入客服抽查佇列', v: VIEWS[1], before: drawSample('right', 'pickup', 'ok', 'ok'), after: drawSample('right', 'return', 'dent', 'ok'), box: BOX_DENT, conf: .64, sev: '輕', sec: '2.1' },
+    { id: 1, ts: past(260), plate: 'DEF-5678', car: CAR, renter: '租客 陳＊豪', status: 2, severity: 'high', type: 'dirty', title: '車內髒汙：車內後座', detail: '後座有明顯飲料污漬與垃圾，須立即清潔', v: VIEWS[5], before: null, after: drawSample('seat-rear', 'return', 'dirty', 'ok'), box: BOX_DIRTY, conf: .94, sev: '須立即清潔', sec: '1.8' },
+  ];
+  S.sel = null;
+}
+function setStatus(id, st) { const a = S.alerts.find((x) => x.id === id); if (a) { a.status = st; renderDash(); } }
+function falsePositive(id) { S.alerts = S.alerts.filter((x) => x.id !== id); S.sel = null; renderDash(); }
+function selAlert(id) { S.sel = id; renderDash(); }
+function boxHtml(b) { if (!b) return ''; const [y1, x1, y2, x2] = b; return `<div class="bx" style="left:${x1 / 10}%;top:${y1 / 10}%;width:${(x2 - x1) / 10}%;height:${(y2 - y1) / 10}%"></div>`; }
+function imgBox(url, box) { return url ? `<div class="imgbox"><img src="${url}">${boxHtml(box)}</div>` : `<div class="empty" style="background:var(--bg);border-radius:10px;padding:40px 10px">無基準照片</div>`; }
+function fmtT(d) { return d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }); }
+function renderDash() {
+  const open = S.alerts.filter((a) => a.status < 3).length;
+  document.getElementById('kpis').innerHTML = [['今日還車', S.stats.returns], ['AI 自動放行', S.stats.auto], ['待處理異常', open], ['最近預警時效', S.stats.latency]].map(([t, v]) => `<div class="kpi"><b>${v}</b><span>${t}</span></div>`).join('');
+  document.getElementById('alist').innerHTML = S.alerts.length ? S.alerts.map((a) => `<div class="ai ${a.id === S.sel ? 'sel' : ''} ${a.flash ? 'flash' : ''}" onclick="selAlert(${a.id})"><span class="tag ${a.severity === 'high' ? 'high' : 'mid'}">${a.severity === 'high' ? '高' : '中'}</span> <span class="tag gray">${FLOW[a.status]}</span><div class="t">${a.title}</div><div class="s">${a.plate} ・ ${fmtT(a.ts)} ・ 信心度 ${Math.round(a.conf * 100)}%</div></div>`).join('') : '<div class="empty">目前沒有異常 🎉</div>';
+  S.alerts.forEach((a) => (a.flash = false));
+  const a = S.alerts.find((x) => x.id === S.sel);
+  if (!a) { document.getElementById('detail').innerHTML = '<div class="empty">在左側選擇一筆預警，查看前後對照與 AI 判讀</div>'; return; }
+  const next = a.status === 0 ? `<button class="btn red sm" onclick="setStatus(${a.id},1)">確認異常</button> <button class="btn line sm" onclick="falsePositive(${a.id})">判定誤報（退回）</button>` : a.status === 1 ? `<button class="btn red sm" onclick="setStatus(${a.id},2)">${a.type === 'damage' ? '派工維修' : '派工清潔'}</button>` : a.status === 2 ? `<button class="btn ink sm" onclick="setStatus(${a.id},3)">完成並結案</button>` : '<span class="tag low">已結案</span>';
+  document.getElementById('detail').innerHTML = `
+    <h3>${a.title}</h3>
+    <div style="font-size:13px;color:var(--gray)">${a.car} ・ ${a.plate} ・ ${a.renter} ・ 還車 ${fmtT(a.ts)} ・ 預警時效 ${a.sec} 秒</div>
+    <div class="cmp"><figure><figcaption>取車基準照</figcaption>${a.type === 'damage' ? imgBox(a.before, null) : imgBox(a.before, null)}</figure><figure><figcaption>${a.type === 'inherit' ? '取車時照片（AI 標註）' : '還車照片（AI 標註）'}</figcaption>${imgBox(a.after, a.box)}</figure></div>
+    <div class="res"><h4>AI 判讀 <span class="tag ${SEV[a.sev] || 'high'}">${a.sev}</span></h4><p>${a.detail}</p><p>信心度 ${Math.round(a.conf * 100)}%　${a.conf < .8 ? '（低於 80%，建議人工複核）' : '（高信心）'}</p></div>
+    <div style="font-size:12px;color:var(--gray);margin:4px 0">處理流程</div>
+    <div class="flow">${FLOW.map((f, i) => `<span class="${i <= a.status ? 'on' : ''}">${f}</span>`).join('')}</div>
+    <div class="row">${next}</div>`;
+}
+function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.getElementById('toast').appendChild(t); setTimeout(() => t.remove(), 4500); }
+
+// ============ 手機畫面 ============
+function topBar(title, sub) { return `<div class="ph-top"><h2>${title}</h2><p>${sub}</p></div>`; }
+function progBar() { return `<div class="prog">${VIEWS.map((v, i) => `<i class="${S.photos[v.id] ? 'done' : i === S.idx ? 'on' : ''}"></i>`).join('')}</div>`; }
+function render() {
+  const el = document.getElementById('screen');
+  if (S.phase === 'home') el.innerHTML = homeHtml();
+  else if (S.phase === 'capture') el.innerHTML = captureHtml();
+  else if (S.phase === 'analyzing') el.innerHTML = analyzingHtml();
+  else el.innerHTML = resultHtml();
+}
+function homeHtml() {
+  const pk = S.pickup;
+  return topBar('我的租借', '取還車前後請依指示拍攝車況') + `<div class="pad">
+    <div class="vcard"><div style="font-weight:700">${CAR}</div><div style="margin:6px 0"><span class="plate">${PLATE}</span></div>
+    <div style="font-size:13px;color:var(--gray)">${pk ? '✅ 已完成取車拍攝，使用中' : '尚未取車'}</div></div>
+    <button class="big b-red" onclick="startFlow('pickup')">📷 取車拍攝<small>${pk ? '重新進行取車' : '拍 6 張：外觀 4、車內 2，AI 即時檢查'}</small></button>
+    <button class="big b-ink" onclick="startFlow('return')">🏁 還車拍攝<small>${pk ? 'AI 會與取車照片比對，只抓本次新增' : '尚未取車，將以示範基準照比對'}</small></button>
+    <div class="row" style="margin-top:6px"><button class="btn line sm" onclick="startFlow('pickup',true)">⚡ 取車自動拍完</button><button class="btn line sm" onclick="startFlow('return',true)">⚡ 還車自動拍完</button></div>
+    <p style="font-size:12px;color:var(--gray);margin-top:14px">Demo 提示：右上角可切換情境；「⚡」會用示範照片自動跑完整流程。</p></div>`;
+}
+function captureHtml() {
+  const v = VIEWS[S.idx], c = S.cur;
+  const outline = v.interior ? '<rect x="12%" y="18%" width="76%" height="64%" rx="14" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="10 8" opacity=".85"/>' : (v.id === 'left' || v.id === 'right') ? '<rect x="10%" y="30%" width="80%" height="44%" rx="30" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="10 8" opacity=".85"/>' : '<rect x="24%" y="26%" width="52%" height="52%" rx="26" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="10 8" opacity=".85"/>';
+  let body = '';
+  const label = S.mode === 'pickup' ? '取車' : '還車';
+  if (!c) {
+    body = `<div class="cam"><svg>${outline}</svg><div class="hint">${v.hint}</div></div>
+    <div class="row" style="margin-top:12px"><button class="btn red" style="flex:1" onclick="document.getElementById('file').click()">📷 拍照／選擇照片</button></div>
+    <div style="font-size:12px;color:var(--gray);margin:12px 0 6px">或使用示範照片：</div>
+    <div class="row"><button class="btn line sm" onclick="useSample('ok')">✅ 正常</button><button class="btn line sm" onclick="useSample('dark')">🌑 太暗</button><button class="btn line sm" onclick="useSample('blur')">🌫️ 模糊</button><button class="btn line sm" onclick="useSample('wrong')">↔️ 角度錯誤</button></div>`;
+  } else if (c.status === 'checking') {
+    body = `<div class="cam"><img src="${c.photo.url}"></div><div class="step"><div class="spin"></div>AI 檢查照片品質中…</div>`;
+  } else {
+    const q = c.q;
+    body = `<div class="cam"><img src="${c.photo.url}"></div>
+    <div class="chips">${q.checks.map((k) => `<span class="chip ${k.ok ? 'ok' : 'bad'}">${k.ok ? '✓' : '✕'} ${k.k}</span>`).join('')}</div>
+    ${q.ok ? `<div class="banner ok">照片合格 ✓${q.aiNote ? '（' + q.aiNote + '）' : ''}</div>
+      <button class="btn ink" style="width:100%" onclick="nextView()">${S.idx === VIEWS.length - 1 ? '完成拍攝，送出分析' : '下一張'}</button>`
+    : `<div class="banner bad">${q.checks.filter((k) => !k.ok).map((k) => k.msg).join('<br>')}</div>
+      <button class="btn red" style="width:100%" onclick="retake()">重新拍攝</button>`}`;
+  }
+  return topBar(`${label}拍攝　${S.idx + 1} / ${VIEWS.length}`, v.name) + `<div class="pad">${progBar()}${body}
+    <div class="thumbs">${VIEWS.map((x, i) => `<div class="${i === S.idx ? 'cur' : ''}">${S.photos[x.id] ? `<img src="${S.photos[x.id].url}">` : ''}</div>`).join('')}</div>
+    <div class="row" style="margin-top:14px"><button class="btn line sm" onclick="goHome()">離開</button></div></div>`;
+}
+function analyzingHtml() {
+  return topBar('AI 分析中', S.mode === 'pickup' ? '登記既有車損與車內狀況' : '與取車照片比對，找出本次新增狀況') + `<div class="pad">${S.progress.map((p) => `<div class="step">${p.st === 'done' ? '<span style="color:var(--green)">✓</span>' : p.st === 'run' ? '<div class="spin"></div>' : '<span style="color:#bbb">•</span>'}<span>${p.v.name}</span></div>`).join('')}</div>`;
+}
+function resultHtml() {
+  const r = S.result, pick = S.mode === 'pickup';
+  let h = topBar(pick ? '取車確認' : '還車結果', `${CAR} ・ ${PLATE}`) + '<div class="pad">';
+  if (r.aiErr) h += '<div class="banner warn">部分照片 AI 判讀失敗，已以預設結果顯示</div>';
+  if (pick) {
+    if (r.dirty.length) h += `<div class="banner bad">⚠️ 車內髒汙（承接前車）<br><span style="font-weight:400">已通知客服。您可選擇換車，或繼續取車並保留紀錄，此狀況不會算在您的責任。</span></div>`;
+    h += `<div class="res"><h4>既有車損登記（${r.damages.length}）</h4>${r.damages.length ? r.damages.map((d) => `<div style="margin-bottom:8px"><span class="tag ${SEV[d.severity] || 'low'}">${d.severity}</span> <b style="font-size:13px">${d.location}</b><p>${d.description}</p>${imgBoxPhone(S.photos[d.v.id].url, d.box)}</div>`).join('') : '<p>未發現既有車損</p>'}<p style="font-size:12px">請確認以上為取車前已存在的損傷，還車時只會比對「新增」的部分。</p></div>`;
+    h += `<div class="res"><h4>車內清潔度</h4>${r.levels.map((l) => `<p>${l.v.name}：<span class="tag ${l.level === 'dirty' ? 'high' : l.level === 'normal' ? 'mid' : 'low'}">${{ clean: '乾淨', normal: '普通', dirty: '髒汙' }[l.level]}</span> ${l.reason}</p>`).join('')}</div>`;
+    h += `<button class="btn red" style="width:100%" onclick="confirmPickup()">我確認，開始用車</button>`;
+  } else {
+    const bad = r.damages.length || r.dirty.length;
+    h += bad ? `<div class="banner bad">偵測到異常，已即時通知客服（${r.sec} 秒）</div>` : `<div class="banner ok">✓ 未發現異常，已自動放行</div>`;
+    if (r.damages.length) h += `<div class="res"><h4>本次新增車損（${r.damages.length}）</h4>${r.damages.map((d) => `<div style="margin-bottom:8px"><span class="tag ${SEV[d.severity] || 'mid'}">${d.severity}</span> <b style="font-size:13px">${d.location}・${TYPE_ZH[d.type] || ''}</b><p>${d.description}</p>${imgBoxPhone(S.photos[d.v.id].url, d.box)}</div>`).join('')}<p style="font-size:12px">AI 僅提出預警，最終由客服人員確認，您可補充說明或提出申訴。</p></div>`;
+    h += `<div class="res"><h4>車內清潔度</h4>${r.levels.map((l) => `<p>${l.v.name}：<span class="tag ${l.level === 'dirty' ? 'high' : l.level === 'normal' ? 'mid' : 'low'}">${{ clean: '乾淨', normal: '普通', dirty: '髒汙' }[l.level]}</span> ${l.reason}</p>`).join('')}${r.dirty.length ? '<div style="margin-top:6px"><span class="tag high">髒汙</span> 已通知整備人員清潔</div>' + r.dirty.map((d) => imgBoxPhone(S.photos[d.v.id].url, d.box)).join('') : ''}</div>`;
+    h += `<button class="btn ink" style="width:100%" onclick="finishReturn()">完成還車</button>`;
+  }
+  return h + '</div>';
+}
+function imgBoxPhone(url, box) { return `<div class="imgbox">${`<img src="${url}">`}${boxHtml(box)}</div>`; }
+
+// ============ 流程控制 ============
+function startFlow(mode, auto) {
+  S.mode = mode; S.idx = 0; S.photos = {}; S.cur = null; S.phase = 'capture';
+  if (auto) { VIEWS.forEach((v) => (S.photos[v.id] = { url: drawSample(v.id, mode, S.scenario, 'ok'), meta: { sample: true } })); analyze(); return; }
+  render();
+}
+function goHome() { S.phase = 'home'; render(); }
+function useSample(variant) { const v = VIEWS[S.idx]; handlePhoto({ url: drawSample(v.id, S.mode, S.scenario, variant), meta: { sample: true, wrong: variant === 'wrong' } }); }
+function onFile(e) { const f = e.target.files[0]; e.target.value = ''; if (!f) return; const r = new FileReader(); r.onload = () => handlePhoto({ url: r.result, meta: {} }); r.readAsDataURL(f); }
+async function handlePhoto(photo) {
+  const v = VIEWS[S.idx]; S.cur = { photo, status: 'checking' }; render();
+  if (!S.ai || photo.meta.sample) await sleep(350);
+  const q = await checkQuality(photo, v); S.cur = { photo, q, status: 'done' }; render();
+}
+function retake() { S.cur = null; render(); }
+function nextView() {
+  const v = VIEWS[S.idx]; S.photos[v.id] = S.cur.photo; S.cur = null;
+  if (S.idx < VIEWS.length - 1) { S.idx++; render(); } else analyze();
+}
+function confirmPickup() { S.pickup = { photos: Object.fromEntries(VIEWS.map((v) => [v.id, S.photos[v.id].url])), existing: S.result.damages }; toast('✅ 取車完成，既有車損已登記'); S.phase = 'home'; render(); }
+function finishReturn() { S.pickup = null; S.phase = 'home'; render(); }
+function resetAll() { S.pickup = null; S.phase = 'home'; S.stats = { returns: 12, auto: 10, latency: '—' }; seedAlerts(); render(); renderDash(); }
+function toggleAI(on) { S.ai = on && S.aiAvailable; document.getElementById('aiLbl').textContent = S.ai ? 'AI 模式 (Gemini) ● 啟用' : 'AI 模式 (Gemini)'; if (on && !S.aiAvailable) { document.getElementById('aiSw').checked = false; toast('伺服器未設定 Gemini API key'); } }
+
+// ============ 啟動 ============
+(async function init() {
+  try { const h = await (await fetch('/api/health')).json(); S.aiAvailable = !!h.ai; } catch {}
+  if (!S.aiAvailable) document.getElementById('aiLbl').textContent = 'AI 模式（未設定 key）';
+  seedAlerts(); render(); renderDash();
+  const q = new URLSearchParams(location.search);
+  if (q.get('only')) document.body.classList.add('only-' + q.get('only'));
+  if (q.get('scn')) S.scenario = q.get('scn');
+  if (q.get('ph')) document.querySelector('.phone').style.height = q.get('ph') + 'px';
+  const shot = q.get('shot');
+  if (shot === 'dark') { startFlow('return'); useSample('dark'); }
+  else if (shot === 'result') { startFlow('return', true); }
+  else if (shot === 'dash') { startFlow('return', true); }
+})();
+</script>
+</body>
+</html>

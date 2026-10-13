@@ -148,6 +148,7 @@ const server = http.createServer(async (req, res) => {
       if (!al) return sendJSON(res, 404, { error: "not found" });
       const b = JSON.parse(await readBody(req)); const st = Number(b.status);
       if (st >= 0 && st <= 3) { al.status = st; bump(); }
+      if (typeof b.note === "string") { al.note = b.note.slice(0, 300); bump(); }
       return sendJSON(res, 200, al);
     }
     if (am && req.method === "DELETE") {

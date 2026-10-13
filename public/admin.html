@@ -110,6 +110,8 @@ body.embed header{display:none}
 body.embed main.usr{padding:8px}
 body.embed main.adm{padding:8px}
 body.embed .phone{height:calc(100vh - 16px)}
+.tabs{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff}
+.tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--gray)}.tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 </style>
 </head>
 <body>
@@ -131,7 +133,7 @@ body.embed .phone{height:calc(100vh - 16px)}
 <script>
 if (new URLSearchParams(location.search).get('embed')) document.body.classList.add('embed');
 
-const A = { alerts: [], stats: { returns: 0, auto: 0, latency: '—' }, sel: null, version: -1, seen: null, flash: new Set() };
+const A = { filter: 'all', alerts: [], stats: { returns: 0, auto: 0, latency: '—' }, sel: null, version: -1, seen: null, flash: new Set() };
 async function seed() {
   const mk = (o, b, a) => ({ ...o, before: b, after: a });
   const alerts = [
@@ -153,26 +155,32 @@ async function poll() {
     }
     A.seen = ids; A.alerts = s.alerts; A.stats = s.stats; A.version = s.version;
     if (A.sel && !ids.has(A.sel)) A.sel = null;
+    if (!A.sel && new URLSearchParams(location.search).get('sel') && A.alerts.length) A.sel = A.alerts[0].id;
     renderDash();
   } catch (e) { /* 網路暫時中斷，下一輪再試 */ }
 }
 async function setStatus(id, st) { await fetch('/api/alerts/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: st }) }); poll(); }
 async function falsePositive(id) { await fetch('/api/alerts/' + id, { method: 'DELETE' }); poll(); }
+function setFilter(f) { A.filter = f; renderDash(); }
 function selAlert(id) { A.sel = id; renderDash(); }
 async function resetAll() { await fetch('/api/reset', { method: 'POST' }); A.seen = null; A.version = -1; A.sel = null; poll(); }
 function renderDash() {
   const open = A.alerts.filter((a) => a.status < 3).length;
   document.getElementById('kpis').innerHTML = [['今日還車', A.stats.returns], ['AI 自動放行', A.stats.auto], ['待處理異常', open], ['最近預警時效', A.stats.latency]].map(([t, v]) => `<div class="kpi"><b>${v}</b><span>${t}</span></div>`).join('');
-  document.getElementById('alist').innerHTML = A.alerts.length ? A.alerts.map((a) => `<div class="ai ${a.id === A.sel ? 'sel' : ''} ${A.flash.has(a.id) ? 'flash' : ''}" onclick="selAlert(${a.id})"><span class="tag ${a.severity === 'high' ? 'high' : 'mid'}">${a.severity === 'high' ? '高' : '中'}</span> <span class="tag gray">${FLOW[a.status]}</span><div class="t">${a.title}</div><div class="s">${a.plate} ・ ${fmtT(new Date(a.ts))}${a.type === 'report' ? ' ・ 租客回報' : ' ・ 信心度 ' + Math.round(a.conf * 100) + '%'}</div></div>`).join('') : '<div class="empty">目前沒有異常 🎉</div>';
+  const shown = A.alerts.filter((a) => A.filter === 'all' || (A.filter === 'open' ? a.status < 3 : a.status === 3));
+  const tabs = [['all', '全部', A.alerts.length], ['open', '待處理', open], ['closed', '已結案', A.alerts.length - open]].map(([k, n, c]) => `<button class="tab ${A.filter === k ? 'on' : ''}" onclick="setFilter('${k}')">${n} ${c}</button>`).join('');
+  document.getElementById('alist').innerHTML = `<div class="tabs">${tabs}</div>` + (shown.length ? shown.map((a) => `<div class="ai ${a.id === A.sel ? 'sel' : ''} ${A.flash.has(a.id) ? 'flash' : ''}" onclick="selAlert(${a.id})"><span class="tag ${a.severity === 'high' ? 'high' : 'mid'}">${a.severity === 'high' ? '高' : '中'}</span> <span class="tag gray">${FLOW[a.status]}</span>${a.note ? ' <span class="tag mid">💬 有說明</span>' : ''}<div class="t">${a.title}</div><div class="s">${a.plate} ・ ${fmtT(new Date(a.ts))}${a.type === 'report' ? ' ・ 租客回報' : ' ・ 信心度 ' + Math.round(a.conf * 100) + '%'}</div></div>`).join('') : '<div class="empty">目前沒有異常 🎉</div>');
   A.flash.clear();
   const a = A.alerts.find((x) => x.id === A.sel);
   if (!a) { document.getElementById('detail').innerHTML = '<div class="empty">在左側選擇一筆預警，查看前後對照與 AI 判讀</div>'; return; }
   const next = a.status === 0 ? `<button class="btn red sm" onclick="setStatus(${a.id},1)">確認異常</button> <button class="btn line sm" onclick="falsePositive(${a.id})">判定誤報（退回）</button>` : a.status === 1 ? `<button class="btn red sm" onclick="setStatus(${a.id},2)">${a.type === 'damage' ? '派工維修' : '派工清潔'}</button>` : a.status === 2 ? `<button class="btn ink sm" onclick="setStatus(${a.id},3)">完成並結案</button>` : '<span class="tag low">已結案</span>';
+  const noteHtml = a.note ? `<div class="banner warn" style="font-weight:400"><b>💬 租客補充說明</b><br>${a.note.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))}</div>` : '';
   document.getElementById('detail').innerHTML = `
     <h3>${a.title}</h3>
     <div style="font-size:13px;color:var(--gray)">${a.car} ・ ${a.plate} ・ ${a.renter} ・ ${fmtT(new Date(a.ts))}${a.type === 'report' ? '' : ' ・ 預警時效 ' + a.sec + ' 秒'}</div>
     ${a.type === 'report' ? '' : `<div class="cmp"><figure><figcaption>取車基準照</figcaption>${imgBox(a.beforeUrl, null)}</figure><figure><figcaption>${a.type === 'inherit' ? '取車時照片（AI 標註）' : '還車照片（AI 標註）'}</figcaption>${imgBox(a.afterUrl, a.box)}</figure></div>`}
     <div class="res"><h4>${a.type === 'report' ? '租客回報' : 'AI 判讀'} <span class="tag ${SEV[a.sev] || 'high'}">${a.sev}</span></h4><p>${a.detail}</p>${a.type === 'report' ? '' : `<p>信心度 ${Math.round(a.conf * 100)}%　${a.conf < .8 ? '（低於 80%，建議人工複核）' : '（高信心）'}</p>`}</div>
+    ${noteHtml}
     <div style="font-size:12px;color:var(--gray);margin:4px 0">處理流程</div>
     <div class="flow">${FLOW.map((f, i) => `<span class="${i <= a.status ? 'on' : ''}">${f}</span>`).join('')}</div>
     <div class="row">${next}</div>`;

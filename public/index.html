@@ -142,7 +142,7 @@ body.embed .phone{height:calc(100vh - 16px)}
 <script src="/common.js"></script>
 <script>
 if (new URLSearchParams(location.search).get('embed')) document.body.classList.add('embed');
-const S = { phase: 'home', mode: null, idx: 0, photos: {}, cur: null, scenario: 'ok', ai: false, aiAvailable: false, pickup: null, rental: null, back: 'home', result: null, progress: [], t0: 0 };
+const S = { phase: 'home', mode: null, idx: 0, photos: {}, cur: null, scenario: 'ok', ai: false, aiAvailable: false, pickup: null, rental: null, lastAlerts: [], camOn: false, stream: null, back: 'home', result: null, progress: [], t0: 0 };
 async function api(task, context, images) {
   const imgs = await Promise.all(images.map((u) => shrink(u)));
   const r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task, context, images: imgs }) });
@@ -208,7 +208,7 @@ function finish(out) {
     if (o.v.interior) { res.levels.push({ v: o.v, ...o.r }); if (o.r.level === 'dirty') res.dirty.push({ v: o.v, ...o.r }); }
     else (S.mode === 'pickup' ? (o.r.existing_damage || []) : (o.r.new_damage || [])).forEach((d) => res.damages.push({ v: o.v, ...d, baseline: o.baseline }));
   });
-  S.result = res;
+  S.result = res; S.lastAlerts = [];
   if (S.mode === 'return') {
     const bad = res.damages.length || res.dirty.length;
     postStats({ returns: 1, auto: bad ? 0 : 1, latency: bad ? sec + ' 秒' : undefined });
@@ -228,7 +228,8 @@ async function postJSON(url, body, method) {
 async function postAlert(a) {
   try {
     const before = a.before ? await shrink(a.before, 800) : null, after = a.after ? await shrink(a.after, 800) : null;
-    await postJSON('/api/alerts', { alert: { type: a.type, severity: a.severity, title: a.title, detail: a.detail, viewName: a.v.name, conf: a.conf, sev: a.sev, sec: a.sec, box: a.box, plate: PLATE, car: CAR, renter: '租客 王＊明' }, before, after });
+    const j = await postJSON('/api/alerts', { alert: { type: a.type, severity: a.severity, title: a.title, detail: a.detail, viewName: a.v.name, conf: a.conf, sev: a.sev, sec: a.sec, box: a.box, plate: PLATE, car: CAR, renter: '租客 王＊明' }, before, after });
+    if (j && j.id) S.lastAlerts.push(j.id);
     toast('🔔 已通知客服：' + a.title);
   } catch (e) { toast('通知客服失敗，請稍後再試'); }
 }
@@ -243,9 +244,10 @@ function stepper(steps, cur) { return `<div class="stepper">${steps.map((s, i) =
 function fmtDur(ms) { const s = Math.floor(ms / 1000), m = Math.floor(s / 60); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
 function render() {
   const el = document.getElementById('screen');
-  const m = { home: homeHtml, driving: drivingHtml, returnArea: returnAreaHtml, capture: captureHtml, analyzing: analyzingHtml, result: resultHtml, parking: parkingHtml, pay: payHtml, done: doneHtml, report: reportHtml };
+  const m = { home: homeHtml, driving: drivingHtml, returnArea: returnAreaHtml, capture: captureHtml, analyzing: analyzingHtml, result: resultHtml, parking: parkingHtml, pay: payHtml, done: doneHtml, report: reportHtml, appeal: appealHtml };
   el.innerHTML = (m[S.phase] || resultHtml)();
   clearInterval(S.tmr);
+  if (S.camOn && S.phase === 'capture') { const v = document.getElementById('vid'); if (v && S.stream) v.srcObject = S.stream; }
   if (S.phase === 'driving') S.tmr = setInterval(() => { const e = document.getElementById('tm'); if (e && S.rental) e.textContent = fmtDur(Date.now() - S.rental.startedAt); }, 1000);
 }
 function homeHtml() {
@@ -303,6 +305,19 @@ function doneHtml() {
     <button class="btn line" style="width:100%;margin-bottom:10px" onclick="openReport('done')">點我回報</button>
     <button class="btn ink" style="width:100%" onclick="finishReturn()">回到首頁</button></div>`;
 }
+function appealHtml() {
+  return topBar('補充說明／申訴', '若認為判讀有誤，可在此說明，客服會參考並人工確認') + `<div class="pad">
+    <div class="banner warn">AI 只提出預警，不會直接作為責任判定。</div>
+    <textarea id="ap" rows="5" placeholder="例：這道凹陷取車前就存在，但取車時我沒有注意到。"></textarea>
+    <div class="row" style="margin-top:14px"><button class="btn red" style="flex:1" onclick="submitAppeal()">送出給客服</button><button class="btn line" onclick="S.phase='result';render()">返回</button></div></div>`;
+}
+async function submitAppeal() {
+  const note = document.getElementById('ap').value.trim();
+  if (!note) { toast('請先填寫說明'); return; }
+  if (!S.lastAlerts.length) { toast('尚未建立案件，請稍後再試'); return; }
+  await Promise.all(S.lastAlerts.map((id) => postJSON('/api/alerts/' + id, { note }, 'PATCH')));
+  toast('✅ 已送出，客服會參考您的說明'); S.phase = 'result'; render();
+}
 const REPORT_OPTS = ['外觀有損傷', '車內髒亂或異味', '設備異常（喇叭、冷氣、燈光）', '其他問題'];
 function openReport(back) { S.back = back; S.phase = 'report'; render(); }
 function reportHtml() {
@@ -320,12 +335,13 @@ function submitReport() {
 }
 function captureHtml() {
   const v = VIEWS[S.idx], c = S.cur;
+  if (S.camOn) return camHtml(v);
   const outline = v.interior ? '<rect x="12%" y="18%" width="76%" height="64%" rx="14" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="10 8" opacity=".85"/>' : (v.id === 'left' || v.id === 'right') ? '<rect x="10%" y="30%" width="80%" height="44%" rx="30" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="10 8" opacity=".85"/>' : '<rect x="24%" y="26%" width="52%" height="52%" rx="26" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="10 8" opacity=".85"/>';
   let body = '';
   const label = S.mode === 'pickup' ? '取車' : '還車';
   if (!c) {
     body = `<div class="cam"><svg>${outline}</svg><div class="hint">${v.hint}</div></div>
-    <div class="row" style="margin-top:12px"><button class="btn red" style="flex:1" onclick="document.getElementById('file').click()">📷 拍照／選擇照片</button></div>
+    <div class="row" style="margin-top:12px"><button class="btn red" style="flex:1" onclick="openCam()">📹 開啟相機</button><button class="btn line" style="flex:1" onclick="document.getElementById('file').click()">🖼️ 選擇照片</button></div>
     <div style="font-size:12px;color:var(--gray);margin:12px 0 6px">或使用示範照片：</div>
     <div class="row"><button class="btn line sm" onclick="useSample('ok')">✅ 正常</button><button class="btn line sm" onclick="useSample('dark')">🌑 太暗</button><button class="btn line sm" onclick="useSample('blur')">🌫️ 模糊</button><button class="btn line sm" onclick="useSample('wrong')">↔️ 角度錯誤</button></div>`;
   } else if (c.status === 'checking') {
@@ -360,11 +376,33 @@ function resultHtml() {
     h += bad ? `<div class="banner bad">偵測到異常，已即時通知客服（${r.sec} 秒）</div>` : `<div class="banner ok">✓ 未發現異常，已自動放行</div>`;
     if (r.damages.length) h += `<div class="res"><h4>本次新增車損（${r.damages.length}）</h4>${r.damages.map((d) => `<div style="margin-bottom:8px"><span class="tag ${SEV[d.severity] || 'mid'}">${d.severity}</span> <b style="font-size:13px">${d.location}・${TYPE_ZH[d.type] || ''}</b><p>${d.description}</p>${imgBoxPhone(S.photos[d.v.id].url, d.box)}</div>`).join('')}<p style="font-size:12px">AI 僅提出預警，最終由客服人員確認，您可補充說明或提出申訴。</p></div>`;
     h += `<div class="res"><h4>車內清潔度</h4>${r.levels.map((l) => `<p>${l.v.name}：<span class="tag ${l.level === 'dirty' ? 'high' : l.level === 'normal' ? 'mid' : 'low'}">${{ clean: '乾淨', normal: '普通', dirty: '髒汙' }[l.level]}</span> ${l.reason}</p>`).join('')}${r.dirty.length ? '<div style="margin-top:6px"><span class="tag high">髒汙</span> 已通知整備人員清潔</div>' + r.dirty.map((d) => imgBoxPhone(S.photos[d.v.id].url, d.box)).join('') : ''}</div>`;
+    if (bad) h += '<button class="btn line" style="width:100%;margin-bottom:10px" onclick="S.phase=\'appeal\';render()">💬 補充說明／申訴</button>';
     h += `<button class="btn ink" style="width:100%" onclick="goParking()">下一步：停車位置與付款</button>`;
   }
   return h + '</div>';
 }
 function imgBoxPhone(url, box) { return `<div class="imgbox">${`<img src="${url}">`}${boxHtml(box)}</div>`; }
+
+
+// ============ 相機（getUserMedia，失敗時退回選擇照片）============
+function camHtml(v) {
+  const outline = v.interior ? '<rect x="12%" y="18%" width="76%" height="64%" rx="14"' : (v.id === 'left' || v.id === 'right') ? '<rect x="10%" y="30%" width="80%" height="44%" rx="30"' : '<rect x="24%" y="26%" width="52%" height="52%" rx="26"';
+  return topBar(`${S.mode === 'pickup' ? '取車' : '還車'}拍攝　${S.idx + 1} / ${VIEWS.length}`, v.name) + `<div class="pad">${progBar()}
+    <div class="cam"><video id="vid" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover"></video><svg>${outline} fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="10 8" opacity=".9"/></svg><div class="hint">${v.hint}</div></div>
+    <div class="row" style="margin-top:14px"><button class="btn red" style="flex:1" onclick="snap()">● 拍照</button><button class="btn line" onclick="stopCam();render()">關閉相機</button></div></div>`;
+}
+async function openCam() {
+  try {
+    S.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false });
+    S.camOn = true; render();
+  } catch (e) { toast('無法開啟相機，請改用「選擇照片」'); document.getElementById('file').click(); }
+}
+function stopCam() { if (S.stream) S.stream.getTracks().forEach((x) => x.stop()); S.stream = null; S.camOn = false; }
+function snap() {
+  const vd = document.getElementById('vid'); if (!vd || !vd.videoWidth) { toast('相機尚未就緒'); return; }
+  const c = document.createElement('canvas'); c.width = vd.videoWidth; c.height = vd.videoHeight; c.getContext('2d').drawImage(vd, 0, 0);
+  const url = c.toDataURL('image/jpeg', .9); stopCam(); handlePhoto({ url, meta: {} });
+}
 
 // ============ 流程控制 ============
 function startFlow(mode, auto) {
@@ -373,7 +411,7 @@ function startFlow(mode, auto) {
   if (auto) { VIEWS.forEach((v) => (S.photos[v.id] = { url: drawSample(v.id, mode, S.scenario, 'ok'), meta: { sample: true } })); analyze(); return; }
   render();
 }
-function goHome() { S.phase = S.mode === 'return' ? 'driving' : 'home'; render(); }
+function goHome() { stopCam(); S.phase = S.mode === 'return' ? 'driving' : 'home'; render(); }
 function useSample(variant) { const v = VIEWS[S.idx]; handlePhoto({ url: drawSample(v.id, S.mode, S.scenario, variant), meta: { sample: true, wrong: variant === 'wrong' } }); }
 function onFile(e) { const f = e.target.files[0]; e.target.value = ''; if (!f) return; const r = new FileReader(); r.onload = () => handlePhoto({ url: r.result, meta: {} }); r.readAsDataURL(f); }
 async function handlePhoto(photo) {
